@@ -196,9 +196,9 @@ let
         hostTags = hostConfig.tags or [ ];
         hostSystem = "${hostArch}-${if type == "nixos" then "linux" else "darwin"}";
 
-        tagResults = hostTags |> map cfg.perTag;
-        classResult = cfg.perClass hostClass;
-        archResult = cfg.perArch hostArch;
+        tagResults = hostTags |> map (flip cfg.perTag ezModules);
+        classResult = cfg.perClass hostClass ezModules;
+        archResult = cfg.perArch hostArch ezModules;
         allDispatch =
           [
             shared
@@ -337,19 +337,19 @@ in
     shared = mkBasicParams "Shared";
 
     perClass = mkOption {
-      default = class: {
+      default = class: ezModules: {
         modules = [ ];
         specialArgs = { };
       };
       defaultText = ''
-        class: {
+        class: :ezModules {
           modules = [ ];
           specialArgs = { };
         };
       '';
       type = { options = mkBasicParams "Per class"; } |> types.submodule |> types.functionTo;
       example = literalExpression ''
-        class: {
+        class: ezModules: {
           modules = [
             { system.nixos.label = class; }
           ];
@@ -362,12 +362,12 @@ in
     };
 
     perArch = mkOption {
-      default = arch: {
+      default = arch: ezModules: {
         modules = [ ];
         specialArgs = { };
       };
       defaultText = ''
-        arch: {
+        arch: ezModules: {
           modules = [ ];
           specialArgs = { };
         };
@@ -376,7 +376,7 @@ in
       type = { options = mkBasicParams "Per arch"; } |> types.submodule |> types.functionTo;
 
       example = literalExpression ''
-        arch: {
+        arch: ezModules: {
           modules = [
             { system.nixos.label = arch; }
           ];
@@ -389,12 +389,12 @@ in
     };
 
     perTag = mkOption {
-      default = tag: {
+      default = tag: ezModules: {
         modules = [ ];
         specialArgs = { };
       };
       defaultText = ''
-        tag: {
+        tag: ezModules: {
           modules = [ ];
           specialArgs = { };
         };
@@ -409,7 +409,7 @@ in
             gaming = ./modules/gaming;
           };
         in
-        tag: {
+        tag: ezModules: {
           modules = [ tagModule.''${tag} ];
 
           specialArgs = { };
