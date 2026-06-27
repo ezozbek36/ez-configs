@@ -3,15 +3,11 @@
 {
   fonts = {
     fontDir.enable = true;
-    fonts = [
-      (pkgs.nerdfonts.override { fonts = [ "CascadiaCode" ]; })
-    ];
+    fonts = [ (pkgs.nerdfonts.override { fonts = [ "CascadiaCode" ]; }) ];
   };
 
   users.users.example-user = {
     name = "example-user";
     home = "/Users/example-user";
   };
-
-  nixpkgs.hostPlatform = "aarch64-darwin";
 }

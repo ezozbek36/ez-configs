@@ -2,9 +2,7 @@
 # It will be included with any nixos host configuration that has `importDefault = true`, which is the default
 { modulesPath, ... }:
 {
-  imports = [
-    (modulesPath + "/installer/scan/not-detected.nix")
-  ];
+  imports = [ (modulesPath + "/installer/scan/not-detected.nix") ];
 
   nix = {
     extraOptions = "experimental-features = nix-command flakes";

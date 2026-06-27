@@ -9,9 +9,9 @@
     };
   };
 
-  outputs = inputs: inputs.flake-parts.lib.mkFlake
-    { inherit inputs; }
-    {
+  outputs =
+    inputs:
+    inputs.flake-parts.lib.mkFlake { inherit inputs; } {
       systems = [
         "aarch64-darwin"
         "aarch64-linux"
@@ -25,8 +25,10 @@
           description = "A simple configuration template with ez-configs";
         };
       };
-      perSystem = { pkgs, ... }: {
-        formatter = pkgs.nixpkgs-fmt;
-      };
+      perSystem =
+        { pkgs, ... }:
+        {
+          formatter = pkgs.nixfmt-rfc-style;
+        };
     };
 }

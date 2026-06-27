@@ -1,5 +1,5 @@
 # This is the module that will be imported with the `nixosConfigurations.example-nixos` system
-{ config, ... }:
+{ ... }:
 {
   fileSystems = {
     "/" = {
@@ -12,7 +12,7 @@
       fsType = "vfat";
     };
   };
-  swapDevices = [{ device = "/dev/vg1/swap"; }];
+  swapDevices = [ { device = "/dev/vg1/swap"; } ];
 
   users.users.system-user = rec {
     name = "alice";
@@ -22,6 +22,4 @@
     extraGroups = [ "wheel" ];
     initialPassword = "password"; # Change this asap obv
   };
-
-  nixpkgs.hostPlatform = "x86_64-linux";
 }
