@@ -1,6 +1,160 @@
 { lib }:
 with lib;
-{
+rec {
+  /**
+      classToOS
+
+      # Arguments
+
+      - [class]: The class of the system. This is usually one of `nixos` or `darwin`.
+
+      # Type
+
+      ```
+      classToOS :: String -> String
+      ```
+
+      # Example
+
+      ```nix
+      classToOS "darwin"
+      => "darwin"
+      ```
+
+      ```nix
+      classToOS "nixos"
+      => "linux"
+      ```
+  */
+  classToOS = class: if (class == "darwin") then "darwin" else "linux";
+
+  /**
+    classToND
+
+    # Arguments
+
+    - [class]: The class of the system. This is usually one of `nixos` or `darwin`.
+
+    # Type
+
+    ```
+    classToND :: String -> String
+    ```
+
+    # Example
+
+    ```nix
+    classToND "darwin"
+    => "darwin"
+    ```
+
+    ```nix
+    classToND "iso"
+    => "nixos"
+    ```
+  */
+  classToND = class: if (class == "darwin") then "darwin" else "nixos";
+
+  /**
+    redefineClass
+
+    # Arguments
+
+    - [additionalClasses]: A set of additional classes to be used for the system.
+    - [class]: The class of the system. This is usually one of `nixos`, `darwin`, or `iso`.
+
+    # Type
+
+    ```
+    redefineClass :: AttrSet -> String -> String
+    ```
+
+    # Example
+
+    ```nix
+    redefineClass { rpi = "nixos"; } "linux"
+    => "nixos"
+    ```
+
+    ```nix
+    redefineClass { rpi = "nixos"; } "rpi"
+    => "nixos"
+    ```
+  */
+  redefineClass =
+    additionalClasses: class: ({ linux = "nixos"; } // additionalClasses).${class} or class;
+
+  /**
+    constructSystem
+
+    # Arguments
+
+    - [additionalClasses]: A set of additional classes to be used for the system.
+    - [arch]: The architecture of the system. This is usually one of `x86_64`, `aarch64`, or `armv7l`.
+    - [class]: The class of the system. This is usually one of `nixos`, `darwin`, or `iso`.
+
+    # Type
+
+    ```
+    constructSystem :: AttrSet -> String -> String -> String
+    ```
+
+    # Example
+
+    ```nix
+    constructSystem { rpi = "nixos"; } "x86_64" "rpi"
+    => "x86_64-linux"
+    ```
+
+    ```nix
+    constructSystem { rpi = "nixos"; } "x86_64" "linux"
+    => "x86_64-linux"
+    ```
+  */
+  constructSystem =
+    additionalClasses: arch: class:
+    let
+      class' = redefineClass additionalClasses class;
+      os = classToOS class';
+    in
+    "${arch}-${os}";
+
+  /**
+     splitSystem
+
+     # Arguments
+
+     - [system]: The system to be split. This is usually one of `x86_64-linux`, `aarch64-darwin`, or `armv7l-linux`.
+
+     # Type
+
+     ```
+     splitSystem :: String -> AttrSet
+     ```
+
+     # Example
+
+     ```nix
+     splitSystem "x86_64-linux"
+     => { arch = "x86_64"; class = "linux"; }
+     ```
+
+     ```nix
+     splitSystem "aarch64-darwin"
+     => { arch = "aarch64"; class = "darwin"; }
+     ```
+  */
+  splitSystem =
+    system:
+    let
+      sp = builtins.split "-" system;
+      arch = elemAt sp 0;
+      class = elemAt sp 2;
+    in
+    {
+      inherit arch class;
+    };
+
   readModules =
     {
       dir,

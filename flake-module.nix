@@ -59,10 +59,53 @@ let
         else
           let
             hostOptions = {
+              # keep this up to date with
+              # https://github.com/NixOS/nixpkgs/blob/75a43236cfd40adbc6138029557583eb77920afd/lib/systems/flake-systems.nix#L1
+              arch = mkOption {
+                type = types.enum [
+                  "x86_64"
+                  "aarch64"
+                  "armv6l"
+                  "armv7l"
+                  "i686"
+                  "powerpc64le"
+                  "riscv64"
+                ];
+                default = "x86_64";
+                example = "aarch64";
+                description = "The architecture of the host";
+              };
+
+              class = mkOption {
+                type = types.enum (concatLists [
+                  [
+                    "nixos"
+                    "darwin"
+                  ]
+
+                  (attrNames cfg.additionalClasses)
+                ]);
+                default = "nixos";
+                example = "darwin";
+                description = "The class of the host";
+              };
+
+              tags = mkOption {
+                type = types.listOf types.str;
+                default = [ ];
+                example = [ "laptop" ];
+                description = "Extra tags for the host";
+              };
+
               userHomeModules = mkOption {
                 default = [ ];
                 type = types.either (types.listOf types.str) (types.attrsOf types.str);
-                example = literalExpression "[ \"alice\" \"bob\" ]";
+                example = literalExpression ''
+                  { 
+                    alice = "alice-minimal";
+                    bob = "bob-full";
+                  }
+                '';
                 description = ''
                   List or attribute set of users in ''${ezConfigs.hm.usersDirectory},
                   whose comfigurations to import as home manager ${configType}Modules.
@@ -173,7 +216,21 @@ let
     };
   };
 
-  mkOsConfigurations =
+  # This is a workaround the types.attrsOf (type.submodule ...) functionality.
+  # We can't ensure that each host/ user present in the appropriate directory
+  # is also present in the attrset, so we need to create a default module for it.
+  # That way we can fallback to it if it's not present in the attrset.
+  # Is there a better way to do this? Maybe defining a custom type?
+  defaultSubmodule =
+    submodule:
+    concatMapAttrs (
+      opt: optDef: if optDef ? default then { ${opt} = optDef.default; } else { }
+    ) submodule.options;
+
+  # Getting the first submodule seems to work, but not sure if it's the best way.
+  defaultSubmoduleAttr = attrsType: defaultSubmodule (elemAt attrsType.getSubModules 0);
+
+  mkHostConfigurations =
     hosts:
     {
       type,
@@ -181,6 +238,7 @@ let
       ezModules,
       specialArgs,
       userModules,
+      defaultConfig,
       ezHomeModules,
       extraSpecialArgs,
       hostConfigurations,
@@ -189,25 +247,23 @@ let
     |> mapAttrs (
       name: configurationModule:
       let
-        hostConfig = hosts.${name} or { userHomeModules = [ ]; };
+        hostConfig = hosts.${name} or defaultConfig;
 
         hostClass = hostConfig.class or type;
         hostArch = hostConfig.arch or "x86_64";
         hostTags = hostConfig.tags or [ ];
-        hostSystem = "${hostArch}-${if type == "nixos" then "linux" else "darwin"}";
+        hostSystem = constructSystem cfg.additionalClasses hostConfig.arch hostConfig.class;
 
         tagResults = hostTags |> map (flip cfg.perTag ezModules);
         classResult = cfg.perClass hostClass ezModules;
         archResult = cfg.perArch hostArch ezModules;
         allDispatch =
           [
-            shared
+            archResult
+            classResult
           ]
           ++ tagResults
-          ++ [
-            classResult
-            archResult
-          ];
+          ++ [ shared ];
 
         dispatchModules = allDispatch |> concatMap (s: s.modules);
         dispatchSpecialArgs = allDispatch |> map (s: s.specialArgs) |> foldl' lib.recursiveUpdate { };
@@ -342,12 +398,12 @@ in
         specialArgs = { };
       };
       defaultText = ''
-        class: :ezModules {
+        class: ezModules: {
           modules = [ ];
           specialArgs = { };
         };
       '';
-      type = { options = mkBasicParams "Per class"; } |> types.submodule |> types.functionTo;
+      type = { options = mkBasicParams "Per class"; } |> types.submodule |> types.functionTo |> lib.types.functionTo;
       example = literalExpression ''
         class: ezModules: {
           modules = [
@@ -373,7 +429,7 @@ in
         };
       '';
 
-      type = { options = mkBasicParams "Per arch"; } |> types.submodule |> types.functionTo;
+      type = { options = mkBasicParams "Per arch"; } |> types.submodule |> types.functionTo |> lib.types.functionTo;
 
       example = literalExpression ''
         arch: ezModules: {
@@ -400,7 +456,7 @@ in
         };
       '';
 
-      type = { options = mkBasicParams "Per tag"; } |> types.submodule |> types.functionTo;
+      type = { options = mkBasicParams "Per tag"; } |> types.submodule |> types.functionTo |> lib.types.functionTo;
 
       example = literalExpression ''
         let
@@ -483,7 +539,7 @@ in
             )
           else
             cfg.${type}.hosts
-            |> flip mkOsConfigurations {
+            |> flip mkHostConfigurations {
               inherit (cfg) shared;
               inherit type hostConfigurations;
               inherit (cfg.${type}) specialArgs;
@@ -491,6 +547,7 @@ in
               ezModules = allModules.${type} or { };
               ezHomeModules = allModules.home or { };
               userModules = allConfigurationModules.home or { };
+              defaultConfig = defaultSubmoduleAttr cfg.${type}.hosts.type;
             }
         );
     in
